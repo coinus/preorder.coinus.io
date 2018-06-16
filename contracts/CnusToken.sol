@@ -1,8 +1,8 @@
 pragma solidity 0.4.21;
 
 import "./LockableToken.sol";
-import "zeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
 import "zeppelin-solidity/contracts/token/ERC20/BurnableToken.sol";
+import "zeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
 
 
 /** @title CNUS Token
@@ -16,6 +16,72 @@ contract CnusToken is MintableToken, LockableToken, BurnableToken {
     string public name = "CoinUs";
     string public symbol = "CNUS";
     uint256 public decimals = 18;
+
+    // global token transfer lock
+    bool public globalTokenTransferLock;
+
+    // mapping that provides address based lock. default at the time of issueance
+    // is locked, and will not be transferrable until explicit unlock call for
+    // the address.
+    mapping( address => bool ) public lockedStatusAddress;
+
+    event Locked(address lockedAddress);
+    event Unlocked(address unlockedaddress);
+
+    // Check for global lock status to be unlocked
+    modifier checkGlobalTokenTransferLock {
+        require(!globalTokenTransferLock);
+        _;
+    }
+
+    // Check for address lock to be unlocked
+    modifier checkAddressLock {
+        require(!lockedStatusAddress[msg.sender]);
+        _;
+    }
+
+    function setGlobalTokenTransferLock(bool locked) public
+    isOwner
+    returns (bool)
+    {
+        globalTokenTransferLock = locked;
+        return globalTokenTransferLock;
+    }
+
+    /**
+      * @dev Allows token issuer to lock token transfer for an address.
+      * @param target Target address to lock token transfer.
+      */
+    function initialLockAddress(address target) public
+    onlyOwner
+    {
+        require(owner != target);
+        lockedStatusAddress[target] = true;
+        emit Locked(target);
+    }
+
+    /**
+      * @dev Allows token issuer to lock token transfer for an address.
+      * @param target Target address to lock token transfer.
+      */
+    function lockAddress(address target) public
+    isOwner
+    {
+        require(owner != target);
+        lockedStatusAddress[target] = true;
+        emit Locked(target);
+    }
+
+    /**
+      * @dev Allows token issuer to unlock token transfer for an address.
+      * @param target Target address to unlock token transfer.
+      */
+    function unlockAddress(address target) public
+    isOwner
+    {
+        lockedStatusAddress[target] = false;
+        emit Unlocked(target);
+    }
 
     /** @dev Transfer `_value` token to `_to` from `msg.sender`, on the condition
       * that global token lock and individual address lock in the `msg.sender`
